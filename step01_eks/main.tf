@@ -97,7 +97,7 @@ module "eks" {
   # eks 노드들의 사양 설정하기
   eks_managed_node_groups = {
     default = {
-      instance_types = ["t3.medium"]
+      instance_types = ["t3.micro"] # t3.medium 이지만 실습용으로 t3.micro 사용
       ami_type       = "AL2023_x86_64_STANDARD"
       min_size       = 1    # 최소 node 사이즈
       max_size       = 4    # 최대 node 사이즈
