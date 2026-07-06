@@ -1,6 +1,6 @@
 ---
 # Source: micro-app/templates/deploy.yaml
-# templates/delpoy.yaml
+# templates/deploy.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,3 +25,11 @@ spec:
         image: "nginx:latest"
         ports:
         - containerPort: 80
+         # [교정] values.yaml에 구성한 resources 오브젝트를 인덴트 10칸 기준으로 동적 렌더링합니다.
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi

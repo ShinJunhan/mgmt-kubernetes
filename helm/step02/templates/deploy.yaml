@@ -23,3 +23,6 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
         ports:
         - containerPort: 80
+         # [교정] values.yaml에 구성한 resources 오브젝트를 인덴트 10칸 기준으로 동적 렌더링합니다.
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}

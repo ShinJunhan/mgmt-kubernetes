@@ -1,0 +1,14 @@
+# templates/deploy.yaml
+apiVersion: v1
+kind: ConfiMap
+metadata:
+  name: test
+data:
+  # with 블럭에서 사용할 object 를 미리 참조해 놓는다
+  {{- with .Values.appSettings.metadata }}
+  app-author: {{ .author }}     # 여기서 . 은 .Values.appSettings.metadata 를 가리킨다
+  app-team: {{ .team }}
+  # global 영역의 Chart 를 참조하기 위해서는 $. 해서 참조한다
+  location: {{ .location }}
+  chart-name: {{ $.Chart.Name }}
+  {{- end }}
