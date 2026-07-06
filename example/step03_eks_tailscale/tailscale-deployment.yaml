@@ -1,0 +1,48 @@
+# tailscale-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tailscale-router
+  namespace: tailscale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tailscale
+  template:
+    metadata:
+      labels:
+        app: tailscale
+    spec:
+      serviceAccountName: tailscale-sa
+      containers:
+      - name: tailscale
+        image: tailscale/tailscale:latest
+        resources:                    # ← 이 블록을 추가
+          requests:                   # "최소 보장" — 스케줄러가 이만큼 여유 노드에 배치·예약
+            cpu: "50m"                # 50 밀리코어 = 0.05 vCPU  (1000m = 1 vCPU)
+            memory: "64Mi"            # 64 메비바이트
+          limits:                     # "상한선"
+            cpu: "200m"               # 넘으면 CPU는 throttle(느려짐)
+            memory: "128Mi"           # 넘으면 메모리는 OOMKilled(강제 종료)
+        env:
+        - name: TS_AUTHKEY
+          valueFrom:
+            secretKeyRef:
+              name: tailscale-auth
+              key: TS_AUTHKEY
+        - name: TS_ROUTES
+          value: "10.0.0.0/16,172.20.0.0/16"
+        - name: TS_USERSPACE
+          value: "false"
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+        volumeMounts:
+        - name: tun
+          mountPath: /dev/net/tun
+      volumes:
+      - name: tun
+        hostPath:
+          path: /dev/net/tunF
