@@ -1,0 +1,32 @@
+---
+# Source: test/templates/ingress-rule.yaml
+# helm/step01_hello/templates/ingress-rule.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # 배포 시 이름을 .Release.Name 으로 참조할 수 있다
+  name: my-release-ingress
+spec:
+  ingressClassName: aaa
+  rules:
+  - host: junhanshin.com
+    http:
+      paths:
+        - path: /market
+          pathType: Prefix
+          backend:
+            service:
+              name: svc-market-app
+              port: 8000
+        - path: /posts
+          pathType: Prefix
+          backend:
+            service:
+              name: svc-post-app
+              port: 8000
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: svc-index-app
+              port: 80

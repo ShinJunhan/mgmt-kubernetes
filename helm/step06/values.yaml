@@ -1,0 +1,7 @@
+# values.yaml
+subdomains:
+  - "aaa"
+  - "bbb"
+  - "ccc"
+
+globalSuffix: "site"

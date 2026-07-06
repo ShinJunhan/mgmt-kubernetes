@@ -1,0 +1,22 @@
+# helm/step01_hello/templates/ingress-rule.yaml
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # 배포 시 이름을 .Release.Name 으로 참조할 수 있다
+  name: {{ .Release.Name }}-ingress
+spec:
+  ingressClassName: aaa
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+        {{- range .Values.ingress.paths }}
+        - path: {{ .path }}
+          pathType: {{ .pathType }}
+          backend:
+            service:
+              name: {{ .serviceName }}
+              port: {{ .port }}
+        {{- end }}
+{{- end }}

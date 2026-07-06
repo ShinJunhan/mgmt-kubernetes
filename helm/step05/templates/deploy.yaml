@@ -1,0 +1,11 @@
+# templates/deploy.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: step4-range-map
+data:
+  # servicePorts 내부의 모든 Key와 Value를 순회합니다.
+  # := 은 go lang 에서 단축 변수 선언 연산자
+  {{- range $key, $val := .Values.servicePorts }}
+  service-{{ $key }}-port: {{ $val | quote }}
+  {{- end }}

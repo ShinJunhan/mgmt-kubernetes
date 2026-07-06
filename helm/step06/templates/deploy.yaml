@@ -1,0 +1,10 @@
+# templates/deploy.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: step5-scope-trap
+data:
+  {{- range .Values.subdomains }}
+  domain-{{ . }}: "{{ . }}.{{ $.Values.globalSuffix }}.com"
+  chart-name-{{ . }}: "{{ $.Chart.Name }}"
+  {{- end }}

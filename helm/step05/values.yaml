@@ -1,0 +1,6 @@
+# values.yaml
+# Map(object) 형태로 정의된 데이터
+servicePorts:
+  market: "8000"
+  posts: "8080"
+  index: "80"
