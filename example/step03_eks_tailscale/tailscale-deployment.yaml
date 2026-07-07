@@ -45,4 +45,5 @@ spec:
       volumes:
       - name: tun
         hostPath:
-          path: /dev/net/tunF
+          path: /dev/net/tun
+          type: CharDevice
