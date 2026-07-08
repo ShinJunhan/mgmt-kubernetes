@@ -1,13 +1,13 @@
 
-## window 에서 mgmt 서버를 거쳐서 grafana, argocd 에 접속하게 하기 
+### window 에서 mgmt 서버를 거쳐서 grafana, argocd 에 접속하게 하기 
 
 ![alt text](image.png)
 
 ```bash
-# argocd-server 의 ClusterIP 알아내기 -> 172.20.33.21
+# argocd-server 의 ClusterIP 알아내기 -> 172.20.34.45
 k get svc -n argocd | grep argocd-server
 
-# grafana-server 의 ClusterIP 알아내기 -> 172.20.84.176
+# grafana-server 의 ClusterIP 알아내기 172.20.154.100
 k get svc -n monitoring | grep kube-prometheus-stack-grafana
 
 ```
@@ -38,7 +38,7 @@ server {
     listen 80;
     server_name argocd.internal.com;
     location / {
-        proxy_pass http://172.20.33.21:80; 
+        proxy_pass http://172.20.34.45:80; 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -52,7 +52,7 @@ server {
     listen 80;
     server_name grafana.internal.com;
     location / {
-        proxy_pass http://172.20.84.176:80;
+        proxy_pass http://172.20.154.100:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -60,5 +60,10 @@ server {
     }
 }
 
+# 오타가 없는지 문법 체크
+sudo nginx -t
+
+# 설정을 시스템에 반영
+sudo systemctl reload nginx
 
 ```
