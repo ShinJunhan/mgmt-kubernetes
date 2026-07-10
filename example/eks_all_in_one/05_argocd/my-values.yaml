@@ -1,0 +1,9 @@
+# 05_argocd/my-values.yaml
+
+# ArgoCD 웹서버(ui) 의 네트워크 설정 전달하기
+server:
+  service:
+    type: ClusterIP
+  # cloudflared or route53 을 거쳐서 https 처리는 다되어서 들어오기 때문에 --insecure 로 설정한다 
+  extraArgs:
+    - --insecure

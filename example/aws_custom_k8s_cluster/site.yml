@@ -1,0 +1,339 @@
+---
+- name: Prepare Kubernetes prerequisites on all nodes
+  hosts: all
+  become: true
+  gather_facts: false
+  vars: &k8s_vars
+    kube_version: "1.29.3"
+    cri_dockerd_version: "0.3.15"
+    pod_network_cidr: "10.244.0.0/16"
+    service_cidr: "10.96.0.0/12"
+    calico_manifest_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/calico.yaml"
+    #cri_dockerd_deb_url: "https://github.com/Mirantis/cri-dockerd/releases/download/v{{ cri_dockerd_version }}/cri-dockerd_{{ cri_dockerd_version }}.3-0.ubuntu-{{ ansible_distribution_release }}_amd64.deb"
+    cri_dockerd_deb_url: "https://github.com/Mirantis/cri-dockerd/releases/download/v{{ cri_dockerd_version }}/cri-dockerd_{{ cri_dockerd_version }}.3-0.ubuntu-jammy_amd64.deb"
+  pre_tasks:
+    - name: Wait for instance SSH to become reachable
+      wait_for_connection:
+        delay: 5
+        timeout: 300
+
+    - name: Gather facts after SSH is ready
+      setup:
+
+    - name: Wait for cloud-init to finish safely
+      command: cloud-init status --wait
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure software-properties-common is installed
+      apt:
+        name: software-properties-common
+        state: present
+        update_cache: true
+
+    - name: Enable Ubuntu universe repository
+      command: add-apt-repository -y universe
+      register: add_universe_repo
+      changed_when: "'enabled' in add_universe_repo.stdout"
+      failed_when:
+        - add_universe_repo.rc != 0
+        - "'already enabled' not in add_universe_repo.stderr | lower"
+      when: ansible_distribution == "Ubuntu"
+
+  tasks:
+    - name: Install base packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-apt
+          - conntrack
+        state: present
+        update_cache: true
+
+    - name: Disable swap immediately
+      command: swapoff -a
+      when: ansible_swaptotal_mb | int > 0
+
+    - name: Remove swap entry from /etc/fstab
+      replace:
+        path: /etc/fstab
+        regexp: '(^[^#].*swap.*$)'
+        replace: '# \1'
+
+    - name: Ensure kernel modules are loaded
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+      notify: Reload kernel modules
+
+    - name: Load kernel modules immediately
+      command: modprobe {{ item }}
+      loop:
+        - overlay
+        - br_netfilter
+      changed_when: false
+
+    - name: Apply sysctl networking params for Kubernetes
+      copy:
+        dest: /etc/sysctl.d/99-kubernetes-cri.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables  = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward                 = 1
+      notify: Reload sysctl
+
+    - name: Ensure apt keyrings directory exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        filename: docker
+        state: present
+        update_cache: true
+
+    - name: Install Docker engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Configure Docker daemon
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "exec-opts": ["native.cgroupdriver=systemd"],
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "100m"
+            },
+            "storage-driver": "overlay2"
+          }
+      notify: Restart Docker
+
+    - name: Download cri-dockerd package
+      get_url:
+        url: "{{ cri_dockerd_deb_url }}"
+        dest: "/tmp/cri-dockerd.deb"
+        mode: "0644"
+
+    - name: Install cri-dockerd
+      apt:
+        deb: "/tmp/cri-dockerd.deb"
+        state: present
+
+    - name: Enable cri-dockerd services
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - cri-docker.socket
+        - cri-docker.service
+
+    - name: Download Kubernetes GPG key
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes.asc
+        mode: '0644'
+
+    - name: Add Kubernetes apt repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes.asc] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /"
+        filename: kubernetes
+        state: present
+        update_cache: true
+
+    - name: Install kubelet, kubeadm and kubectl
+      apt:
+        name:
+          - "kubelet={{ kube_version }}-*"
+          - "kubeadm={{ kube_version }}-*"
+          - "kubectl={{ kube_version }}-*"
+        state: present
+        allow_downgrade: true
+
+    - name: Hold Kubernetes packages at current version
+      command: apt-mark hold kubelet kubeadm kubectl
+      changed_when: false
+
+    - name: Ensure kubelet drop-in directory exists
+      file:
+        path: /etc/systemd/system/kubelet.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Configure kubelet to use cri-dockerd
+      copy:
+        dest: /etc/systemd/system/kubelet.service.d/20-cri.conf
+        content: |
+          [Service]
+          Environment="KUBELET_EXTRA_ARGS=--container-runtime-endpoint=unix:///var/run/cri-dockerd.sock"
+      notify:
+        - Reload systemd
+        - Restart kubelet
+
+    - name: Ensure kubelet is enabled
+      systemd:
+        name: kubelet
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Reload kernel modules
+      command: modprobe {{ item }}
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Reload sysctl
+      command: sysctl --system
+
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Restart kubelet
+      systemd:
+        name: kubelet
+        state: restarted
+        enabled: true
+
+
+- name: Initialize Kubernetes control plane
+  hosts: master
+  become: true
+  gather_facts: false
+  vars:
+    <<: *k8s_vars
+    kubeadm_config_path: /etc/kubernetes/kubeadm-config.yaml
+  tasks:
+    - name: Gather facts on master
+      setup:
+
+    - name: Check if cluster is already initialized
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_init_status
+
+    - name: Create unified kubeadm config file
+      copy:
+        dest: "{{ kubeadm_config_path }}"
+        content: |
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: ClusterConfiguration
+          kubernetesVersion: v{{ kube_version }}
+          controlPlaneEndpoint: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}:6443"
+          networking:
+            podSubnet: "{{ pod_network_cidr }}"
+            serviceSubnet: "{{ service_cidr }}"
+          apiServer:
+            extraArgs:
+              authorization-mode: Node,RBAC
+          ---
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: InitConfiguration
+          nodeRegistration:
+            name: "{{ inventory_hostname }}"
+            criSocket: unix:///var/run/cri-dockerd.sock
+        owner: root
+        group: root
+        mode: "0644"
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Initialize Kubernetes control plane
+      command: kubeadm init --config {{ kubeadm_config_path }}
+      args:
+        creates: /etc/kubernetes/admin.conf
+      register: kubeadm_init_result
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Set up kubectl for the ubuntu user
+      shell: |
+        mkdir -p /home/{{ ansible_user }}/.kube
+        cp -f /etc/kubernetes/admin.conf /home/{{ ansible_user }}/.kube/config
+        chown {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/.kube/config
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Download Calico manifest
+      get_url:
+        url: "{{ calico_manifest_url }}"
+        dest: /tmp/calico.yaml
+        mode: "0644"
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Update Calico IP pool CIDR
+      replace:
+        path: /tmp/calico.yaml
+        regexp: '192\.168\.0\.0/16'
+        replace: "{{ pod_network_cidr }}"
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Install Calico CNI
+      become: false
+      shell: |
+        kubectl apply -f /tmp/calico.yaml
+        kubectl -n kube-system set env daemonset/calico-node IP_AUTODETECTION_METHOD=interface=ens5
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
+      when: not kubeadm_init_status.stat.exists
+
+    - name: Generate worker join command
+      command: kubeadm token create --print-join-command --ttl 4h
+      register: kubeadm_join_cmd
+      changed_when: false
+      run_once: true
+
+    - name: Store join command for worker nodes
+      set_fact:
+        kube_join_command: "{{ kubeadm_join_cmd.stdout }}"
+
+
+- name: Join worker nodes to the cluster
+  hosts: workers
+  become: true
+  gather_facts: false
+  vars:
+    <<: *k8s_vars
+    kube_join_command: "{{ hostvars[groups['master'][0]].kube_join_command }}"
+  tasks:
+    - name: Gather facts on workers
+      setup:
+
+    - name: Check if node already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Join worker node to cluster
+      command: "{{ kube_join_command }} --cri-socket unix:///var/run/cri-dockerd.sock"
+      when: not kubelet_conf.stat.exists
+      register: join_result
+
+    - name: Mark join result
+      debug:
+        msg: "Join skipped (already part of cluster)"
+      when: kubelet_conf.stat.exists

@@ -1,0 +1,27 @@
+---
+- name: Deploy Application and Cloudflare Tunnel Pod
+  hosts: master
+  become: false
+  tasks:
+    - name: 1. Nginx 및 Cloudflared 매니페스트 복사
+      copy:
+        src: "{{ item }}"
+        dest: "/home/{{ ansible_user }}/{{ item }}"
+      loop:
+        - web-app.yaml
+        - cloudflared.yaml
+
+    - name: 2. Cloudflare 터널 토큰을 K8s Secret으로 생성
+      shell: |
+        kubectl create secret generic tunnel-credentials \
+          --from-literal=token={{ tunnel_token }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+      
+    - name: 3. Nginx 앱 및 Cloudflared 파드 배포
+      shell: |
+        kubectl apply -f /home/{{ ansible_user }}/web-app.yaml
+        kubectl apply -f /home/{{ ansible_user }}/cloudflared.yaml
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"

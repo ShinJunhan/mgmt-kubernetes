@@ -1,0 +1,23 @@
+# 08-ingress-rule-argocd.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # ingress rule 의 이름은 유일해야 한다 (복사 붙여 넣기 했으면 이름 변경)
+  name: ingress-rule-argocd
+  # 연결할 service 가 속해 있는 namespace 에 배포가 되어야 한다.
+  namespace: argocd
+spec:
+  # 배포한 ingress-controller 와 연결고리가 되는 ingressClassName: nginx
+  ingressClassName: nginx
+  rules:
+  - host: argocd.cloud-learning.site
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend: 
+          service:
+            name: argocd-server # argocd 라는 namespace 에 존재하는 service 이다 
+            port:
+              number: 80

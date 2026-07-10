@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared
+  template:
+    metadata:
+      labels:
+        app: cloudflared
+    spec:
+      containers:
+      - name: cloudflared
+        image: cloudflare/cloudflared:latest
+        # 🌟 cloudflared용 자원 한도 블록 추가
+        resources:
+          requests:
+            cpu: "100m"       # 최소 0.1 vCPU 보장 (Tailscale보다 트래픽 프록시 연산이 더 많음)
+            memory: "128Mi"   # 최소 128 메비바이트 보장
+          limits:
+            cpu: "500m"       # 최대 0.5 vCPU까지 허용
+            memory: "256Mi"   # 최대 256 메비바이트 제한 (넘으면 안전하게 이 파드만 재시작)
+        args:
+        - tunnel
+        - --no-autoupdate
+        - run
+        env:
+        # 테라폼(또는 앤서블)이 만들어줄 Secret에서 토큰을 가져옵니다.
+        - name: TUNNEL_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: tunnel-credentials
+              key: token

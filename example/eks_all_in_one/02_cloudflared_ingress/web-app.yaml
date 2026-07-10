@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-web
+  template:
+    metadata:
+      labels:
+        app: my-web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        # 🌟 Nginx 웹서버용 자원 한도 블록 추가
+        resources:
+          requests:
+            cpu: "50m"        # 최소 0.05 vCPU 보장
+            memory: "64Mi"    # 최소 64 메비바이트 보장
+          limits:
+            cpu: "200m"       # 최대 0.2 vCPU까지 허용
+            memory: "128Mi"   # 최대 128 메비바이트 제한 (초과 시 OOMKilled 방어)
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # 이름은 테라폼의 Cloudflare Tunnel 설정(내부 DNS)과 맞추기 위해 그대로 유지합니다.
+  name: nginx-svc
+spec:
+  # 1. type을 NodePort에서 ClusterIP로 변경합니다. (또는 이 줄을 삭제해도 기본값이 ClusterIP입니다.)
+  type: ClusterIP
+  selector:
+    app: my-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      
