@@ -1,5 +1,6 @@
-# 06_argocd_deploy/main.tf
+
 # argocd 에 접속해서 prometheus stack 배포, microservice app 배포 하는 작업
+# main.tf 파일
 terraform {
   required_providers {
     # ArgoCD 전용 프로바이더 선언
@@ -180,9 +181,9 @@ resource "argocd_application" "postgres-app" {
   }  
 }
 
-resource "argocd_application" "microservice-app" {
+resource "argocd_application" "image-app" {
   metadata {
-    name      = "microservice-app"
+    name      = "image-app"
     namespace = "argocd"
   }
   spec {
@@ -193,19 +194,8 @@ resource "argocd_application" "microservice-app" {
       target_revision = "master"
       
       # 2. Chart.yaml이 들어있는 폴더 경로 지정
-      path            = "microservice" 
-      
-      # 3. 폴더가 Helm 구조라면 helm 블록을 통해 값을 제어할 수 있습니다!
-      # helm {
-      #   # Git 폴더 안에 있는 특정 values 파일을 덮어쓰고 싶을 때
-      #   value_files = ["values-prod.yaml"] 
-        
-      #   # 또는 개별 변수를 직접 꽂아 넣고 싶을 때
-      #   parameter {
-      #     name  = "image.tag"
-      #     value = "v1.0.5"
-      #   }
-      # }
+      # path            = "efs_test_service" 
+      path            = "efs_test_service_cloudfront"
     }
     
     destination {
@@ -222,3 +212,45 @@ resource "argocd_application" "microservice-app" {
   }  
 }
 
+
+# resource "argocd_application" "microservice-app" {
+#   metadata {
+#     name      = "microservice-app"
+#     namespace = "argocd"
+#   }
+#   spec {
+#     project = "default"
+#     source {
+#       # 1. 일반 Git 저장소 주소
+#       repo_url        = "https://github.com/oli999/argocd_deploy.git"
+#       target_revision = "master"
+      
+#       # 2. Chart.yaml이 들어있는 폴더 경로 지정
+#       path            = "microservice" 
+      
+#       # 3. 폴더가 Helm 구조라면 helm 블록을 통해 값을 제어할 수 있습니다!
+#       # helm {
+#       #   # Git 폴더 안에 있는 특정 values 파일을 덮어쓰고 싶을 때
+#       #   value_files = ["values-prod.yaml"] 
+        
+#       #   # 또는 개별 변수를 직접 꽂아 넣고 싶을 때
+#       #   parameter {
+#       #     name  = "image.tag"
+#       #     value = "v1.0.5"
+#       #   }
+#       # }
+#     }
+    
+#     destination {
+#       server    = "https://kubernetes.default.svc"
+#       namespace = "default" 
+#     }
+#     sync_policy {
+#       automated {
+#         prune       = true
+#         self_heal   = true
+#       }
+#       sync_options = ["CreateNamespace=true"]
+#     }
+#   }  
+# }
