@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app-container
+        # 여기에 ECR 이미지 전체 URI를 적어줍니다.
+        image: 401007297971.dkr.ecr.ap-northeast-2.amazonaws.com/member-app:v1.0
+        ports:
+        - containerPort: 8000
