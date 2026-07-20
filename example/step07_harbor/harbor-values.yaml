@@ -1,0 +1,22 @@
+# step07_harbor/harbor-values.yaml
+#  [네트워크 노출 설정]
+expose:
+  type: loadBalancer
+  tls:
+    enabled: false
+  loadBalancer:
+    # 실제 $HARBOR_IP 주소(예: 172.16.8.40)로 바꿔서 적어주세요!
+    IP: "172.16.8.40"
+
+# [접속 주소 설정]
+externalURL: "http://172.16.8.40"
+
+# [데이터 영구 저장 (NFS 연동) 설정]
+persistence:
+  enabled: true
+  persistentVolumeClaim:
+    # '도커 이미지'가 저장되는 레지스트리 공간 설정
+    registry:
+      # 아까 우리가 배포한 (nfs-client)
+      storageClass: "nfs-client"
+      size: "3Gi"
