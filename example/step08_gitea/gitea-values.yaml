@@ -28,7 +28,10 @@ gitea:
       # 웹 브라우저 화면에 표시될 기본 도메인과 깃 클론용 SSH 주소를 우리 로드밸런서 IP로 강제 지정!
       DOMAIN: "172.16.8.42"
       SSH_DOMAIN: "172.16.8.42"
-
+    # gitea 에서 모든 ip 로의 webhook 을 허용하도록 하는 설정
+    # 적용방법 -> helm upgrade my-gitea gitea-charts/gitea -f gitea-values.yaml -n gitea
+    webhook:
+      ALLOWED_HOST_LIST: "*"
 #  실습 환경을 위해 무겁고 복잡한 고가용성(HA/Cluster) 모드는 모두 차단합니다.
 postgresql-ha:
   enabled: false

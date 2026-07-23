@@ -1,0 +1,42 @@
+# step10_ansible/update-docker.yml
+---
+- name: Update Docker daemon.json and restart services
+  hosts: workers
+  # root 계정으로 접속하므로 별도의 become(sudo)은 생략해도 되지만 명시적으로 작성
+  become: yes 
+  
+  tasks:
+    - name: Configure Docker daemon.json for Harbor insecure-registry
+      copy:
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: '0644'
+        # 파일 내용을 직접 선언 (JSON 형식 유지)
+        content: |
+          {
+            "exec-opts": ["native.cgroupdriver=systemd"],
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "100m"
+            },
+            "storage-driver": "overlay2",
+            "insecure-registries": ["172.16.8.40", "172.16.8.40:80"]
+          }
+      # copy 작업에 변경사항이 발생(Changed)했을 때만 아래 handler를 호출
+      notify:
+        - Restart docker
+        - Restart cri-docker
+
+  # notify에 의해 호출되는 작업들
+  handlers:
+    - name: Restart docker
+      systemd:
+        name: docker
+        state: restarted
+        daemon_reload: yes
+
+    - name: Restart cri-docker
+      systemd:
+        name: cri-docker
+        state: restarted

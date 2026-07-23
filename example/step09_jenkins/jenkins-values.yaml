@@ -1,0 +1,24 @@
+# step09_jenkins/jenkins-values.yaml
+
+controller:
+  # 젠킨스 웹 UI 접속 방식 (MetalLB를 활용한 LoadBalancer)
+  serviceType: LoadBalancer
+  
+  # 고정 IP MetalLB 대역 
+  loadBalancerIP: "172.16.8.41"
+
+  # 젠킨스가 내부적으로 인식할 공식 주소를 아예 Helm 배포 단계에서 주입
+  jenkinsUrl: "http://172.16.8.41:8080/"
+  
+  # 관리자 초기 비밀번호 
+  admin:
+    password: "admin1234"
+  
+  # K8s 플러그인을 위한 권한 부여 (필수)
+  rbac:
+    create: true
+  overwritePlugins: false
+persistence:
+  enabled: true
+  size: "3Gi"
+  storageClass: "nfs-client"

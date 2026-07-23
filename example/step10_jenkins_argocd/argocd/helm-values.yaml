@@ -1,0 +1,8 @@
+# argocd/helm-values.yaml
+
+server:
+  service:
+    # metallb 가 동작중에 있어야 한다 
+    type: LoadBalancer
+  extraArgs:
+    - --insecure
