@@ -1,0 +1,20 @@
+# 05_jenkins/jenkins-values.yaml 파일의 내용
+
+controller:
+  serviceType: ClusterIP
+  # jenkins 가 내부적으로 인식할 공식 주소를 배포 단계에서 넣어주기 (끝에 / 가 반드시 있어야 한다)
+  jenkinsUrl: "https://jenkins.cloud-learning.site/"
+
+  # 관리자 초기 비밀번호
+  admin:
+    password: "@admin1234"
+  # K8s 플러그인을 위한 권한 부여 
+  rbac:
+    create: true
+  overwritePlugins: false
+# 외부 볼륨을 efs 를 사용하도록 한다 
+persistence:
+  enabled: true
+  size: "3Gi"
+  # jenkins 는 efs 설정이 조금 달라서 jenkins 전용 storageClass 를 사용하도록 한다 
+  storageClass: "efs-sc-jenkins"

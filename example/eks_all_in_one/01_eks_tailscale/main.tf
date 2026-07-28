@@ -1,4 +1,4 @@
-# step03_eks_tailscale/main.tf 
+# 01_eks_tailscale/main.tf 
 
 # ---------------------------------------------------------
 # 0. 버전 관리 
@@ -61,17 +61,22 @@ module "eks" {
   subnet_ids                     = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
- 
   enable_cluster_creator_admin_permissions = true
 
-  
   enable_irsa = true
 
- 
   cluster_addons = {
     coredns    = {}
     kube-proxy = {}
-    vpc-cni    = {}
+    # 최대 pod 갯수 늘리기 위한 설정 
+    vpc-cni    = {
+      configuration_values = jsonencode({
+      env = {
+          ENABLE_PREFIX_DELEGATION = "true"
+          WARM_PREFIX_TARGET       = "1"
+        }
+      })    
+    }
   }
 
  
@@ -95,6 +100,21 @@ module "eks" {
       min_size       = 1
       max_size       = 4
       desired_size   = 2
+      # kubelet 에게 최대 worker node 1개당 pod 갯수를 64 개로 늘리도록 설정 
+      cloudinit_pre_nodeadm = [
+        {
+          content_type = "application/node.eks.aws"
+          content      = <<-EOT
+            ---
+            apiVersion: node.eks.aws/v1alpha1
+            kind: NodeConfig
+            spec:
+              kubelet:
+                config:
+                  maxPods: 64
+          EOT
+        }
+      ]      
     }
   }
 }

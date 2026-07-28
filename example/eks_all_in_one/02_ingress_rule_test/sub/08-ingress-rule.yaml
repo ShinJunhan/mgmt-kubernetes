@@ -1,4 +1,4 @@
-# 08-ingress-rule.yaml 파일
+# 05-ingress-rule.yaml 파일
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,7 +7,7 @@ spec:
   # 배포한 ingress-controller 와 연결고리가 되는 ingressClassName: nginx
   ingressClassName: nginx
   rules:
-  - host: cloud-learning.site
+  - host: junhanshin.com
     http:
       # nginx 는 L7 장비이기 때문에 요청경로, 요청 url 등의 정보를 모두 인식 할수 있다.
       paths:

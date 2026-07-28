@@ -3,20 +3,20 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   # ingress rule 의 이름은 유일해야 한다 (복사 붙여 넣기 했으면 이름 변경)
-  name: ingress-rule-argocd
+  name: ingress-rule-jenkins
   # 연결할 service 가 속해 있는 namespace 에 배포가 되어야 한다.
-  namespace: argocd
+  namespace: jenkins
 spec:
   # 배포한 ingress-controller 와 연결고리가 되는 ingressClassName: nginx
   ingressClassName: nginx
   rules:
-  - host: argocd.junhanshin.com
+  - host: jenkins.junhanshin.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend: 
           service:
-            name: argocd-server # argocd 라는 namespace 에 존재하는 service 이다 
+            name: my-jenkins # my-jenkins 가 서비스 이름이다 
             port:
-              number: 80
+              number: 8080 # jenkins 기본 port 는 8080

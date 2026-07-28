@@ -46,3 +46,21 @@ resource "helm_release" "argocd" {
     value = bcrypt("admin1234") 
   }
 }
+
+# helm provider 가 동작할 준비가 되어 있으면 "helm_release" 를 사용할수 있다.
+resource "helm_release" "ingress_nginx" {
+  name             = "ingress-nginx"
+  # helm 저장소의 위치
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  # chart 의 이름
+  chart            = "ingress-nginx"
+  # chart 버전
+  version          = "4.11.0"
+  # namespace 설정 
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  set {
+    name = "controller.service.type"
+    value = "LoadBalancer"
+  }
+}

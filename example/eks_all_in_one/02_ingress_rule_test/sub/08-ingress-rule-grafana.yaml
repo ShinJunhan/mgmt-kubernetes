@@ -10,7 +10,7 @@ spec:
   # 배포한 ingress-controller 와 연결고리가 되는 ingressClassName: nginx
   ingressClassName: nginx
   rules:
-  - host: grafana.cloud-learning.site
+  - host: grafana.junhanshin.com
     http:
       paths:
       - path: /

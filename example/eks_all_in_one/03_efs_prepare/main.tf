@@ -107,7 +107,8 @@ module "efs_csi_irsa_role" {
     ex = {
       #  1단계 원격 장부에서 OIDC ARN을 가져옵니다.
       provider_arn               = data.terraform_remote_state.infra.outputs.eks_oidc_provider_arn
-      namespace_service_accounts = ["kube-system:efs-csi-controller-sa"]
+      # pv 없이 access point 방식으로 pvc 를 가져올때 필요한 권한 설정
+      namespace_service_accounts = ["kube-system:efs-csi-controller-sa", "kube-system:efs-csi-node-sa"]
     }
   }
 }
@@ -122,25 +123,51 @@ resource "aws_eks_addon" "efs_csi" {
 }
 
 # ---------------------------------------------------------
-# 3. EFS용 StorageClass 생성
+# 3. EFS용 StorageClass 생성 (범용)
 # ---------------------------------------------------------
 resource "kubernetes_storage_class_v1" "efs_sc" {
   # 안전장치: EFS 애드온이 완벽히 설치된 후 생성되도록 보장
   depends_on = [aws_eks_addon.efs_csi]
-  # "efs-sc" 라는 이름의 storage 클래스로 생성한다
-  # pvc 요청서에서 efs-sc 라는 이름으로 요청해서 사용하면 된다
+  # "efs-sc" 라는 이름의 storage 클래스로 생성한다 
+  # pvc 요청서에서 efs-sc 라는 이름으로 요청해서 사용하면 된다 
   metadata {
     name = "efs-sc"
   }
-
+  # 프로비저너의 이름 
   storage_provisioner = "efs.csi.aws.com"
 
   parameters = {
-    # access point 를 자동으로 생성해 주기 때문에 별도의 pv 없이 pvc 요청이 될때마다
-    # 독립적인 폴더를 사용할 수 있게 해준다
+    # access point 를 자동으로 생성해 주기 때문에 별도의 pv 없이  pvc 요청이 될때마다
+    # 독립적인 폴더를 사용할수 있게 해준다. 
     provisioningMode = "efs-ap" # Access Point를 자동으로 생성해 주는 모드 
     fileSystemId     = aws_efs_file_system.eks_efs.id
     directoryPerms   = "700"
+  }
+}
+
+# ---------------------------------------------------------
+# 3. EFS용 StorageClass 생성 (jenkins 전용)
+# ---------------------------------------------------------
+resource "kubernetes_storage_class_v1" "efs_sc_jenkins" {
+  # 안전장치: EFS 애드온이 완벽히 설치된 후 생성되도록 보장
+  depends_on = [aws_eks_addon.efs_csi]
+  # "efs-sc" 라는 이름의 storage 클래스로 생성한다 
+  # pvc 요청서에서 efs-sc 라는 이름으로 요청해서 사용하면 된다 
+  metadata {
+    name = "efs-sc-jenkins"
+  }
+  # 프로비저너의 이름 
+  storage_provisioner = "efs.csi.aws.com"
+
+  parameters = {
+    # access point 를 자동으로 생성해 주기 때문에 별도의 pv 없이  pvc 요청이 될때마다
+    # 독립적인 폴더를 사용할수 있게 해준다. 
+    provisioningMode = "efs-ap" # Access Point를 자동으로 생성해 주는 모드 
+    fileSystemId     = aws_efs_file_system.eks_efs.id
+    directoryPerms   = "700"
+    # 폴더 소유자를 jenkins 와 같은 1000 번으로 강제 지정 
+    uid = 1000
+    gid = 1000
   }
 }
 
