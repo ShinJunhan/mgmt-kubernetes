@@ -11,3 +11,11 @@ argocd-repo-server                 ClusterIP   172.20.70.195    <none>        80
 argocd-server                      ClusterIP   172.20.62.95     <none>        80/TCP,443/TCP      101s
 
 ```
+
+### github 에서 argocd 에  webhook 호출하는 설정
+
+<img src="./assets/image01.png">
+
+<img src="./assets/image02.png">
+
+<img src="./assets/image03.png">
