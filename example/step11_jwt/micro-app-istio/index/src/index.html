@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Istio 보안 통제 실습실</title>
+    <script>
+        // [1] 로그인 및 LocalStorage 토큰 장전
+        async function loginSubmit(event) {
+            event.preventDefault();
+            const username = document.getElementById("username").value;
+            
+            try {
+                const response = await fetch("/user/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userName: username })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.access_token) {
+                    // 브라우저 지갑에 토큰 수납
+                    localStorage.setItem("user_token", result.access_token);
+                    
+                    alert("🔑 토큰 발급 및 저장 성공!\n\n지갑에 토큰이 장전되었습니다.");
+                    console.log("장전된 토큰:", localStorage.getItem("user_token"));
+                } else {
+                    alert("로그인 실패: " + (result.message || "인증 거부"));
+                }
+            } catch (error) {
+                alert("인증 서버 통신 오류: " + error);
+            }
+        }
+
+        // [2] 이스티오 성벽  테스트 (헤더에 토큰 장전)
+        async function callMeshService(path) {
+            const token = localStorage.getItem("user_token");
+            const reqHeaders = { "Content-Type": "application/json" };
+            
+            // 토큰이 지갑에 있다면 비행기 표(Authorization 헤더)에 Bearer 딱지 붙여 장전!
+            if (token) {
+                reqHeaders["Authorization"] = "Bearer " + token;
+            }
+
+            try {
+                console.log(`${path} 부서로 패킷 사격 개시... 헤더 상태:`, reqHeaders);
+                
+                const response = await fetch(path, {
+                    method: "GET",
+                    headers: reqHeaders
+                });
+                
+                // 이스티오 무장 경찰관이 401로 밀어냈을 때 처리
+                if (response.status === 401) {
+                    alert("이스티오 성벽 차단 (401 Unauthorized)!\n\n[사유] 유효한 정품 토큰이 없거나 만료되었습니다!");
+                    return;
+                }
+                
+                const result = await response.json();
+                alert("이스티오 성벽 통과 성공 (200 OK)!\n\n[서버 응답]\n" + JSON.stringify(result, null, 2));
+                
+            } catch (error) {
+                alert("네트워크 통신 오류: " + error);
+            }
+        }
+    </script>
+</head>
+<body style="text-align: center; margin-top: 50px; font-family: sans-serif; background-color: #f4f6f9;">
+    <h2>쿠버네티스 MSA 이스티오 보안 통제 실습 </h2>
+    <p style="color: #666;">인프라가 철통 보안을 쳤기 때문에 백엔드 코드가 아닌 앞마당에서 패킷이 필터링됩니다.</p>
+    <br>
+
+    <div style="display: inline-block; padding: 25px; border: 2px solid #326ce5; background: white; border-radius: 10px; width: 450px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h3 style="color: #326ce5; margin-top: 0;">1단계: 토큰 발급/장전소</h3>
+        <form onsubmit="loginSubmit(event)">
+            <label style="font-weight: bold;">수강생 ID : </label>
+            <input type="text" id="username" placeholder="ID 입력" required style="padding: 5px; width: 150px;">
+            <button type="submit" style="padding: 5px 10px; background-color: #326ce5; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;">토큰 발급 슛!</button>
+        </form>
+    </div>
+    
+    <br><br>
+
+    <div style="display: inline-block; padding: 25px; border: 2px solid #e23232; background: white; border-radius: 10px; width: 450px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h3 style="color: #e23232; margin-top: 0;">2단계: 통제구역 마이크로서비스 사격</h3>
+        <div style="margin-bottom: 15px;">
+            <button onclick="callMeshService('/market')" style="padding: 10px 15px; background-color: #ff9900; color: white; font-weight:bold; border:none; border-radius:5px; cursor:pointer; margin-right: 10px;">🛒 마켓 부서 쑤시기</button>
+            <button onclick="callMeshService('/posts')" style="padding: 10px 15px; background-color: #111; color: white; font-weight:bold; border:none; border-radius:5px; cursor:pointer;">📝 포스트 부서 쑤시기</button>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <button onclick="localStorage.removeItem('user_token'); alert('지갑을 완전히 비웠습니다 (토큰 증발)!');" style="padding: 5px 10px; background-color: #6c757d; color: white; border:none; border-radius:3px; cursor:pointer; font-size: 12px;">⚠️ 지갑 분실 시뮬레이션 (토큰 삭제)</button>
+    </div>
+</body>
+</html>

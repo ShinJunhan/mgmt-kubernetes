@@ -1,0 +1,9 @@
+# 05_argocd/argocd-values.yaml
+server:
+  service:
+    # cloudflared ingress 를 사용하면 type 은 ClusterIP --> https:junhanshin.com 으로 접속
+    # 대신 위의 형식대로 사용하려면 cloudflared ingress 의 main.tf 를 적절한 형식으로 수정해야함
+    # cloudflared ingress 를 사용 안하면 type 은 LoadBalancer --> 172.16.8.X 
+    type: LoadBalancer
+  extraArgs:
+    - --insecure

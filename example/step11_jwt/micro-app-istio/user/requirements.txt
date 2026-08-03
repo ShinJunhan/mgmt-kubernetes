@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pyjwt
+requests
+cryptography
+authlib

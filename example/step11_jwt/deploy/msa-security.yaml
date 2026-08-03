@@ -1,0 +1,38 @@
+# deploy/msa-security.yaml
+
+# 1. 토큰 검증 정책: "누군가 JWT를 들고 오면, User 서버에 물어보고 위변조를 확인해라!"
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: micro      # 네임스페이스
+spec:
+  jwtRules:
+  # 주의: issuer는 Python 코드에서 토큰을 만들 때 넣은 'iss' 값과 글자 하나까지 완벽히 똑같아야 합니다.
+  - issuer: "http://svc-fastapi-user:8000/user/login"
+    
+    jwksUri: "http://svc-fastapi-user.micro.svc.cluster.local:8000/user/.well-known/jwks.json"
+    
+---
+# 2. 인가(권한) 정책: "어떤 경로는 허용하고, 어떤 경로는 토큰을 강제할지 결정"
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: msa-auth-policy
+  namespace: micro      #  네임스페이스 
+spec:
+  action: ALLOW
+  rules:
+  # Rule A: 퍼블릭 경로 (토큰 없이 누구나 접근 가능)
+  - to:
+    - operation:
+        paths: ["/", "/user/*"]
+
+  # Rule B: 보호받는 경로 (오직 유효한 토큰 발급자만 접근 가능)
+  - from:
+    - source:
+        # RequestAuthentication이 검증을 통과시킨 주체만 통과
+        requestPrincipals: ["http://svc-fastapi-user:8000/user/login/*"]
+    to:
+    - operation:
+        paths: ["/market", "/posts"]

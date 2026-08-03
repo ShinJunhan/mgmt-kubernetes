@@ -1,0 +1,96 @@
+# deploy/msa-routing.yaml
+
+# nginx ingress controller 의 ingress rule 을 설정하는 것과 유사하다
+
+# =====================================================================
+# 1. Gateway: 클러스터의 '대문' 역할
+# 외부망에서 클러스터 내부로 들어오는 트래픽이 어떤 포트와 프로토콜을 
+# 통과할 수 있는지 정의하는 문지기(게이트웨이) 설정입니다.
+# =====================================================================
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: msa-gateway
+  namespace: micro      
+spec:
+  # selector: 어떤 파드(Pod)를 이 대문으로 사용할 것인지 지정합니다.
+  # 보통 Istio를 설치할 때 기본으로 만들어지는 'istio-ingressgateway' 파드에 위임합니다.
+  selector:
+    istio: ingressgateway 
+  servers:
+  - port:
+      number: 80          # 외부에서 들어오는 80번 포트(HTTP)를 개방합니다.
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"                 # 어떤 도메인(또는 IP)으로 접속하든 가리지 않고 일단 다 통과시킵니다.
+                          # (예: my-app.com, 1.2.3.4 등 모두 허용)
+
+---
+# =====================================================================
+# 2. VirtualService: 트래픽의 '교통 경찰 (라우터)' 역할
+# Gateway를 통과해서 들어온 트래픽의 URL(URI)을 분석하여 
+# 클러스터 내부의 어떤 서비스(Service)로 보낼지 길을 안내해 줍니다.
+# =====================================================================
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService      # ingress rule 에 해당하는 서비스
+metadata:
+  name: msa-vs
+  namespace: micro     
+spec:
+  hosts:
+  - "*"                   # 모든 도메인 요청에 대해 아래의 라우팅 규칙을 적용합니다.
+  gateways:
+  - msa-gateway           # 방금 위에서 만든 'msa-gateway'라는 대문을 통과한 트래픽만 이 규칙을 타게 합니다.
+  http:
+  
+  # ---------------------------------------------------------
+  # [규칙 1] /user 요청 분기
+  # ---------------------------------------------------------
+  - match:
+    - uri:
+        prefix: /user     # 'prefix'는 접두어 매칭입니다. 
+                          # 즉, /user 뿐만 아니라 /user/login, /user/profile 등의 하위 경로도 모두 이곳으로 빠집니다.
+    route:
+    - destination:
+        host: svc-fastapi-user  # 쿠버네티스 내부에 떠있는 User 전용 Service 이름입니다.
+        port:
+          number: 8000          # 해당 Service가 열어둔 포트 번호입니다.
+          
+  # ---------------------------------------------------------
+  # [규칙 2] /market 요청 분기
+  # ---------------------------------------------------------
+  - match:
+    - uri:
+        prefix: /market   # /market, /market/item/1 등 모두 매칭
+    route:
+    - destination:
+        host: svc-fastapi-market
+        port:
+          number: 8000
+          
+  # ---------------------------------------------------------
+  # [규칙 3] /posts 요청 분기
+  # ---------------------------------------------------------
+  - match:
+    - uri:
+        prefix: /posts    # /posts, /posts/view 등 모두 매칭
+    route:
+    - destination:
+        host: svc-fastapi-posts
+        port:
+          number: 8000
+          
+  # ---------------------------------------------------------
+  # [규칙 4] 메인(Index) 페이지 요청 분기
+  # ---------------------------------------------------------
+  - match:
+    - uri:
+        exact: /          # 여기서는 'prefix'가 아닌 'exact(정확한 일치)'를 썼습니다!
+                          # 만약 여기서 'prefix: /' 를 쓰면, 위에서 정의한 /user나 /market 규칙까지
+                          # 모조리 잡아먹어버리는(블랙홀) 참사가 발생하기 때문에 'exact'로 방어
+    route:
+    - destination:
+        host: svc-fastapi-index
+        port:
+          number: 8000
